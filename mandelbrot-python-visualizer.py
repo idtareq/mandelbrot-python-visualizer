@@ -40,14 +40,11 @@ def mandlebrot_pixel(x, y, max_iters: int) -> int:
 
 def render_worker(id, a_barrier, b_barrier, N_WORKERS, W, H, pixels, cx, cy, max_iters):
     pixels_a = np.frombuffer(pixels, dtype=np.double).reshape(W, H)
+    lines_per_thread = H // N_WORKERS
+    start_line, end_line = (id * lines_per_thread), ((id + 1) * lines_per_thread) - 1
 
     while True:
         a_barrier.wait()
-        lines_per_thread = H // N_WORKERS
-        start_line, end_line = (id * lines_per_thread), (
-            (id + 1) * lines_per_thread
-        ) - 1
-
         for y in range(start_line, end_line + 1):
             for x in range(W):
                 pixels_a[x, y] = mandlebrot_pixel(cx[x], cy[y], max_iters.value)
