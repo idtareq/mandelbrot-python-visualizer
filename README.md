@@ -1,6 +1,6 @@
 # mandelbrot-python-visualizer
 
-Visualize the mandelbrot in Python using Multiprocessing or Multithreading to demonstrae performance differences.  
+Visualize the mandelbrot set in Python using Multiprocessing or Multithreading to demonstrate performance differences between the two methods.
 
 Due to the Python Global Interpreter Lock (GIL) multithreading has worst performance than multiprocessing.  
 
