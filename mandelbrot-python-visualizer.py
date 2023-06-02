@@ -11,31 +11,32 @@ import numpy as np
 import multiprocessing as mp
 from threading import Thread
 from multiprocessing import Process
-
+import math
 
 class WorkerType:
     multiprocessing = "Multiprocessing"
     threading = "Threading"
 
 
-@numba.jit
+@numba.jit(nopython=True)
 def mandlebrot_calc_pixel(x, y, max_iters: int) -> int:
-    r = 10
-    z_real = 0
-    z_imag = 0
+    radius_squared = 100
+    real_part = 0
+    imag_part = 0
+    log_radius = math.log(radius_squared)
+    log_2 = math.log(2)
 
-    for n in range(max_iters):
-        z_real, z_imag = (z_real**2 - z_imag**2 + x), (2 * z_real * z_imag + y)
-
-        dist = np.sqrt(z_real**2 + z_imag**2)
-        if dist > r:
-            n -= np.log2(np.log(dist) / np.log(r))
-            m = np.sqrt(n / max_iters)
+    for iteration in range(max_iters):
+        real_part, imag_part = (real_part**2 - imag_part**2 + x), (2 * real_part * imag_part + y)
+        dist_squared = real_part**2 + imag_part**2
+        if dist_squared > radius_squared:
+            iteration -= math.log(math.log(dist_squared) / log_radius) / log_2
+            m = math.sqrt(iteration / max_iters)
 
             r, g, b = (
-                int((np.sin(0.6 * m * 20) * 0.5 + 0.5) * 200),
-                int((np.sin(0.7 * m * 20) * 0.5 + 0.5) * 200),
-                int((np.sin(0.8 * m * 20) * 0.5 + 0.5) * 255),
+                int((math.sin(0.6 * m * 20) * 0.5 + 0.5) * 200),
+                int((math.sin(0.7 * m * 20) * 0.5 + 0.5) * 200),
+                int((math.sin(0.8 * m * 20) * 0.5 + 0.5) * 255),
             )
 
             return r << 16 | g << 8 | b
