@@ -1,15 +1,21 @@
-# mandelbrot-python-visualizer
+# Mandelbrot Set Visualizer in Python
 
-Visualize the mandelbrot set in Python using Multiprocessing or Multithreading to demonstrate performance differences between the two methods.
+This visualizer illustrates the performance differences between Multiprocessing and Multithreading in Python using the Mandelbrot set as an example.
 
-Due to the Python Global Interpreter Lock (GIL) multithreading has worst performance than multiprocessing.  
+Python's Global Interpreter Lock (GIL) typically results in Multithreading performing less efficiently than Multiprocessing, particularly for tasks that require heavy use of the CPU.
 
-## Used libraries
+## Libraries
 
-`pygame` for displaying graphics  
-`numba` for accelerating numerical computations  
-`numpy` for easier access of arrays  
+`pygame` for rendering graphics  
+`cython` for speeding up numerical computations  
+`numpy` for array manipulation and access
 
+## Usage
+
+`pip install requirements.txt`
+`python main.py`
+
+Note: you may need to compile `calculate_mandelbrot.pyx`, run `python setup.py build_ext --inplace`
 
 ## Controls
 

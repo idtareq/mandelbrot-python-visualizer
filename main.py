@@ -1,25 +1,17 @@
-"""
-Visualize the mandelbrot in Python using Multiprocessing or Multithreading
-
-Due to the Python Global Interpreter Lock (GIL) multithreading has worst performance than multiprocessing.
-
-Author: Tareq Ibrahim (idtareq@gmail.com)
-"""
-
-import numba
 import numpy as np
 import multiprocessing as mp
 from threading import Thread
 from multiprocessing import Process
 import math
+import calculate_mandelbrot
 
 class WorkerType:
     multiprocessing = "Multiprocessing"
     threading = "Threading"
 
 
-@numba.jit(nopython=True)
-def mandlebrot_calc_pixel(x, y, max_iters: int) -> int:
+# @numba.jit(nopython=True)
+def mandelbrot_calc_pixel(x, y, max_iters: int) -> int:
     radius_squared = 100
     real_part = 0
     imag_part = 0
@@ -88,11 +80,9 @@ class MandelbrotVisualizer:
 
         while True:
             a_barrier.wait()
-            for y in range(start_line, end_line + 1):
-                for x in range(self.W):
-                    pixels_a[x, y] = self.calc_fn(
-                        self.cx[x], self.cy[y], self.max_iters.value
-                    )
+            self.calc_fn(
+                pixels_a, self.cx, self.cy, self.max_iters.value, start_line, end_line
+            )
             b_barrier.wait()
 
     def update(self, method: WorkerType, centerX, centerY, zoom):
@@ -178,7 +168,7 @@ if __name__ == "__main__":
     H = int(ratio * W)
     N_WORKERS = mp.cpu_count()
 
-    viz = MandelbrotVisualizer(W, H, N_WORKERS, mandlebrot_calc_pixel)
+    viz = MandelbrotVisualizer(W, H, N_WORKERS, calculate_mandelbrot.calculate_mandelbrot)
 
     pg.init()
     screen = pg.display.set_mode((W, H), pg.SCALED)
