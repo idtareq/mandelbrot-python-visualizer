@@ -5,35 +5,10 @@ from multiprocessing import Process
 import math
 import calculate_mandelbrot
 
+
 class WorkerType:
     multiprocessing = "Multiprocessing"
     threading = "Threading"
-
-
-# @numba.jit(nopython=True)
-def mandelbrot_calc_pixel(x, y, max_iters: int) -> int:
-    radius_squared = 100
-    real_part = 0
-    imag_part = 0
-    log_radius = math.log(radius_squared)
-    log_2 = math.log(2)
-
-    for iteration in range(max_iters):
-        real_part, imag_part = (real_part**2 - imag_part**2 + x), (2 * real_part * imag_part + y)
-        dist_squared = real_part**2 + imag_part**2
-        if dist_squared > radius_squared:
-            iteration -= math.log(math.log(dist_squared) / log_radius) / log_2
-            m = math.sqrt(iteration / max_iters)
-
-            r, g, b = (
-                int((math.sin(0.6 * m * 20) * 0.5 + 0.5) * 200),
-                int((math.sin(0.7 * m * 20) * 0.5 + 0.5) * 200),
-                int((math.sin(0.8 * m * 20) * 0.5 + 0.5) * 255),
-            )
-
-            return r << 16 | g << 8 | b
-
-    return 0
 
 
 class MandelbrotVisualizer:
@@ -168,7 +143,9 @@ if __name__ == "__main__":
     H = int(ratio * W)
     N_WORKERS = mp.cpu_count()
 
-    viz = MandelbrotVisualizer(W, H, N_WORKERS, calculate_mandelbrot.calculate_mandelbrot)
+    viz = MandelbrotVisualizer(
+        W, H, N_WORKERS, calculate_mandelbrot.calculate_mandelbrot
+    )
 
     pg.init()
     screen = pg.display.set_mode((W, H), pg.SCALED)
