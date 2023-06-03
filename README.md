@@ -19,11 +19,11 @@ Note: you may need to compile `calculate_mandelbrot.pyx`, run `python setup.py b
 
 ## Controls
 
+`(w, a, s, d)`: Move the scene  
 `up`: Zoom in  
 `down`: Zoom out  
-`(w, a, s, d)`: Move the scene  
 `(right or left)`: Increase/decrease the number of iterations  
-`t`: switch to Multithreading  
-`p`: switch to Multiprocessing  
+`1`: switch to Multiprocessing  
+`2`: switch to Multithreading  
 
 ![screenshot](screenshot.png)
