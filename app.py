@@ -6,7 +6,7 @@ from enum import Enum
 from dataclasses import dataclass
 import threading
 from mandelbrot import generate_mandelbrot_set
-from util import text_drop_shadow
+from util import divide_into_ranges, text_drop_shadow
 
 numba_logger = logging.getLogger("numba")
 numba_logger.setLevel(logging.WARNING)
@@ -81,12 +81,7 @@ class Worker:
         pixels_a = np.frombuffer(self.shared_memory.pixels, dtype=np.double).reshape(
             self.screen_width, self.screen_height
         )
-        lines_per_thread = self.screen_height // self.number_of_workers
-        start_line, end_line = (
-            (self.id * lines_per_thread),
-            ((self.id + 1) * lines_per_thread) - 1,
-        )
-
+        ranges = divide_into_ranges(self.screen_height, self.number_of_workers)
         while not self.syncer.terminate.is_set():
             self.syncer.start()
             # Perform computation
@@ -95,8 +90,8 @@ class Worker:
                 self.shared_memory.cx,
                 self.shared_memory.cy,
                 self.shared_memory.max_iters.value,
-                start_line,
-                end_line,
+                ranges[self.id][0],
+                ranges[self.id][1],
             )
             self.syncer.end()
 
@@ -227,7 +222,7 @@ class MandelbrotVisualizer:
         surface.blit(
             text_drop_shadow(
                 font,
-                "Controls: (w, a, s, d, up, down)",
+                f"{self.worker_type} (press c to change)",
                 3,
                 text_color,
                 shadow_color,
@@ -237,7 +232,7 @@ class MandelbrotVisualizer:
         surface.blit(
             text_drop_shadow(
                 font,
-                f"{self.worker_type} (press 1/2 to change)",
+                f"Iters: {self.shared_memory.max_iters.value} (press right/left arrow to change)",
                 3,
                 text_color,
                 shadow_color,
@@ -247,37 +242,32 @@ class MandelbrotVisualizer:
         surface.blit(
             text_drop_shadow(
                 font,
-                f"Iters: {self.shared_memory.max_iters.value} (press right/left arrow to change)",
+                f"fps: {fps}",
                 3,
                 text_color,
                 shadow_color,
             ),
             (10, 50),
         )
-        surface.blit(
-            text_drop_shadow(
-                font,
-                f"fps: {fps}",
-                3,
-                text_color,
-                shadow_color,
-            ),
-            (10, 70),
-        )
 
 
-def handle_input(viz: MandelbrotVisualizer, centerX, centerY, zoom, delta_time):
+def handle_input(
+    viz: MandelbrotVisualizer,
+    centerX,
+    centerY,
+    zoom,
+    is_panning,
+    pan_start_pos,
+    delta_time,
+):
     pressed_key = pg.key.get_pressed()
     quit = False
+    PAN_SENSITIVITY = 2
 
     if pressed_key[pg.K_RIGHT]:
         viz.shared_memory.max_iters.value += 2
     if pressed_key[pg.K_LEFT]:
         viz.shared_memory.max_iters.value -= 2
-    if pressed_key[pg.K_1]:
-        viz.worker_type = WorkerType.PROCESS
-    if pressed_key[pg.K_2]:
-        viz.worker_type = WorkerType.THREAD
     if pressed_key[pg.K_a]:
         centerX -= zoom * delta_time
     if pressed_key[pg.K_d]:
@@ -293,6 +283,82 @@ def handle_input(viz: MandelbrotVisualizer, centerX, centerY, zoom, delta_time):
     if pressed_key[pg.K_ESCAPE]:
         quit = True
 
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            quit = True
+        elif event.type == pg.KEYDOWN:
+            if event.key == pg.K_c:
+                viz.worker_type = (
+                    WorkerType.PROCESS
+                    if viz.worker_type == WorkerType.THREAD
+                    else WorkerType.THREAD
+                )
+        elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left mouse button
+                is_panning = True
+                pan_start_pos = event.pos
+            elif event.button == 4:  # Scroll up (on some systems)
+                # Zoom in
+                zoom_factor = 0.9
+                mouse_x, mouse_y = event.pos
+                centerX += (
+                    (mouse_x - viz.screen_width / 2)
+                    * (zoom / viz.screen_width)
+                    * (1 - zoom_factor)
+                )
+                centerY += (
+                    (mouse_y - viz.screen_height / 2)
+                    * (zoom / viz.screen_height)
+                    * (1 - zoom_factor)
+                )
+                zoom *= zoom_factor
+            elif event.button == 5:  # Scroll down (on some systems)
+                # Zoom out
+                zoom_factor = 1.1
+                mouse_x, mouse_y = event.pos
+                centerX += (
+                    (mouse_x - viz.screen_width / 2)
+                    * (zoom / viz.screen_width)
+                    * (1 - 1 / zoom_factor)
+                )
+                centerY += (
+                    (mouse_y - viz.screen_height / 2)
+                    * (zoom / viz.screen_height)
+                    * (1 - 1 / zoom_factor)
+                )
+                zoom *= zoom_factor
+        elif event.type == pg.MOUSEBUTTONUP:
+            if event.button == 1:  # Left mouse button
+                is_panning = False
+        elif event.type == pg.MOUSEMOTION:
+            if is_panning:
+                dx = event.pos[0] - pan_start_pos[0]
+                dy = event.pos[1] - pan_start_pos[1]
+                pan_start_pos = event.pos
+
+                scale_x = zoom / viz.screen_width
+                scale_y = zoom / viz.screen_height
+                centerX -= dx * scale_x * PAN_SENSITIVITY
+                centerY -= dy * scale_y * PAN_SENSITIVITY
+        elif event.type == pg.MOUSEWHEEL:
+            # For newer versions of Pygame
+            if event.y > 0:  # Scroll up
+                zoom_factor = 0.9
+            else:  # Scroll down
+                zoom_factor = 1.1
+            mouse_x, mouse_y = pg.mouse.get_pos()
+            centerX += (
+                (mouse_x - viz.screen_width / 2)
+                * (zoom / viz.screen_width)
+                * (1 - zoom_factor)
+            )
+            centerY += (
+                (mouse_y - viz.screen_height / 2)
+                * (zoom / viz.screen_height)
+                * (1 - zoom_factor)
+            )
+            zoom *= zoom_factor
+
     viz.shared_memory.max_iters.value = np.clip(
         viz.shared_memory.max_iters.value, 50, 500
     )
@@ -300,20 +366,22 @@ def handle_input(viz: MandelbrotVisualizer, centerX, centerY, zoom, delta_time):
     centerY = np.clip(centerY, -2, 2)
     zoom = np.clip(zoom, -2, 2)
 
-    return centerX, centerY, zoom, quit
+    return centerX, centerY, zoom, is_panning, pan_start_pos, quit
 
 
 def main():
+    pg.init()
+    info = pg.display.Info()
+
     viz = MandelbrotVisualizer(
-        screen_width=800,
-        screen_ratio=9 / 16,
+        screen_width=int(info.current_w // 1.3),
+        screen_ratio=info.current_h / info.current_w,
         number_of_workers=mp.cpu_count(),
         worker_type=WorkerType.PROCESS,
         max_iters=80,
     )
 
-    pg.init()
-    screen = pg.display.set_mode((viz.screen_width, viz.screen_height), pg.SCALED)
+    screen = pg.display.set_mode((viz.screen_width, viz.screen_height))
     mandelbrot_surface = pg.Surface((screen.get_width(), screen.get_height()))
     text_surface = pg.Surface((screen.get_width(), screen.get_height()), pg.SRCALPHA)
     pg.display.set_caption("Mandelbrot Python Visualizer")
@@ -322,15 +390,16 @@ def main():
     centerX = 0
     centerY = 0
     zoom = 2
+    is_panning = False
+    pan_start_pos = (0, 0)
+    quit = False
 
     while True:
         delta_time = clock.tick(30) / 1000.0
-        centerX, centerY, zoom, quit = handle_input(
-            viz, centerX, centerY, zoom, delta_time
+        centerX, centerY, zoom, is_panning, pan_start_pos, quit = handle_input(
+            viz, centerX, centerY, zoom, is_panning, pan_start_pos, delta_time
         )
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                quit = True
+
         viz.initialize_workers()
         viz.update(centerX, centerY, zoom)
         viz.draw_mandelbrot(mandelbrot_surface)
